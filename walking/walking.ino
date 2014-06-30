@@ -1,5 +1,7 @@
 #include <Servo.h>
 
+// ------------------------- Legs -----------------------------
+
 class Leg {
 public:
   Leg(int shoulderCenter, char shoulderSign, int kneeCenter, int kneeSign)
@@ -67,55 +69,64 @@ private:
   unsigned long targetTime_; 
 };
 
-Leg frontRightLeg(60, +1, 90, +1);
-Leg frontLeftLeg(120, -1, 90, -1);
-Leg backLeftLeg(60, -1, 90, +1);
-Leg backRightLeg(120, 1, 90, -1);
+// Counterclockwise from front right leg.
+// Position is approximately neutral: shoulder is along the radius, knee joints are horizontal.
+
+Leg legs[4] = {Leg(60, +1, 90, +1), Leg(120, -1, 90, -1), Leg(60, -1, 90, +1), Leg(120, 1, 90, -1)};
+Leg& frontRightLeg = legs[0];
+Leg& frontLeftLeg = legs[1];
+Leg& backLeftLeg = legs[2];
+Leg& backRightLeg = legs[3];
 
 void easeAll()
 {
   while(true) {
     delay(15);
-    if (frontRightLeg.ease() && frontLeftLeg.ease() && backLeftLeg.ease() && backRightLeg.ease()) {
+    if (legs[0].ease() && legs[1].ease() && legs[2].ease() && legs[3].ease()) {
       break; 
     }
   }  
 }
 
+// ------------------------- Movement ----------------------------
 
-class Forward
+// Approximate ellipse : shoulderAngle = A \sin \phi; knee angle = B \cos \phi.
+const int shoulderAngles[] = {0, 21, 30, 21, 0, -21, -30, -21};
+const int kneeAngles[] = {20, 14, 0, -14, -20, -14, 0, 14}; 
+
+class Movement
 {
 public:
-  Forward() : step_(0) { }
+  Movement(const char* shoulderPattern) : step_(0), shoulderPattern_(shoulderPattern) { }
   
   void reset() { step_ = 0; }
   
   void performStep(int delay) 
   {
-    frontRightLeg.setTarget(shoulderAngles_[step_], kneeAngles_[step_], delay);
-    backLeftLeg.setTarget(shoulderAngles_[step_], kneeAngles_[step_], delay);
-    frontLeftLeg.setTarget(-shoulderAngles_[step_], -kneeAngles_[step_], delay);
-    backRightLeg.setTarget(-shoulderAngles_[step_], -kneeAngles_[step_], delay);   
-  
+    static const char kneePattern[] = {1, -1, 1, -1};
+    
+    for (int iLeg = 0; iLeg < 4; ++iLeg) {
+      legs[iLeg].setTarget(shoulderAngles[step_]*shoulderPattern_[iLeg], kneeAngles[step_]*kneePattern[iLeg], delay);
+    }
+    
     easeAll();
     
     step_ += 1;
-    if (step_ == sizeof(shoulderAngles_)) {
+    if (step_ == sizeof(shoulderAngles)) {
       step_ = 0; 
     }   
   }
   
 private:
   char step_;
-
-  static const int shoulderAngles_[8];
-  static const int kneeAngles_[8];
+  const char* shoulderPattern_;
 };
 
-const int Forward::shoulderAngles_[] = {21, 0, -21, -30, -21, 0, 21, 30};
-const int Forward::kneeAngles_[] = {-14, -20, -14, 0, 14, 20, 14, 0}; 
+char forwardPattern[4] = {1, -1, 1, -1};
+Movement forward(forwardPattern);
 
-Forward forward;
+char turnPattern[4] = {1, 1, -1, -1};
+Movement turn(turnPattern);
 
 void setup() {
   Serial.begin(38400);
@@ -125,10 +136,9 @@ void setup() {
   backLeftLeg.attach(8, 7);
   backRightLeg.attach(6, 5);
   
-  frontRightLeg.set(0, 0);
-  backLeftLeg.set(0, 0);
-  frontLeftLeg.set(0, 0);
-  backRightLeg.set(0, 0);
+  for (int i = 0; i < 4; ++i) {
+    legs[i].set(0, 0);
+  }
 }
 
 void loop() {
