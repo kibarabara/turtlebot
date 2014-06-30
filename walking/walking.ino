@@ -29,33 +29,13 @@ public:
       knee_.write(kneeTarget);
     }
   }
-    
-private:
-  Servo shoulder_;
-  Servo knee_;
-  int shoulderCenter_;
-  char shoulderSign_;
-  int kneeCenter_;
-  char kneeSign_;
-};
-
-Leg frontRightLeg(60, +1, 90, +1);
-Leg frontLeftLeg(120, -1, 90, -1);
-Leg backLeftLeg(60, -1, 90, +1);
-Leg backRightLeg(120, 1, 90, -1);
-
-class Easing {
-public:
-  Easing(Leg& leg)
-    : leg_(leg), shoulderV_(0), kneeV_(0), shoulderTarget_(0), kneeTarget_(0), targetTime_(0)
-  { }
   
   void setTarget(int shoulderTarget, int kneeTarget, int delay)
   {
     shoulderTarget_ = shoulderTarget;
-    shoulderV_ = ((float)shoulderTarget - leg_.getShoulderDelta()) / delay;
+    shoulderV_ = ((float)shoulderTarget - getShoulderDelta()) / delay;
     kneeTarget_ = kneeTarget;
-    kneeV_ = ((float)kneeTarget - leg_.getKneeDelta()) / delay;
+    kneeV_ = ((float)kneeTarget - getKneeDelta()) / delay;
     
     targetTime_ = millis() + delay;
   }
@@ -64,22 +44,78 @@ public:
   {
     unsigned long curTime = millis();
     if (curTime >= targetTime_) {
-      leg_.set(shoulderTarget_, kneeTarget_);
+      set(shoulderTarget_, kneeTarget_);
       return true; 
     }
     
-    leg_.set(shoulderTarget_ - shoulderV_ * (targetTime_ - curTime), kneeTarget_ - kneeV_ * (targetTime_ - curTime));
+    set(shoulderTarget_ - shoulderV_ * (targetTime_ - curTime), kneeTarget_ - kneeV_ * (targetTime_ - curTime));
     return false;
-  } 
-    
+  }
+  
 private:
-  Leg& leg_;
+  Servo shoulder_;
+  Servo knee_;
+  const int shoulderCenter_;
+  const char shoulderSign_;
+  const int kneeCenter_;
+  const char kneeSign_;
+  
   float shoulderV_;
   float kneeV_;
   int shoulderTarget_;
   int kneeTarget_;
   unsigned long targetTime_; 
 };
+
+Leg frontRightLeg(60, +1, 90, +1);
+Leg frontLeftLeg(120, -1, 90, -1);
+Leg backLeftLeg(60, -1, 90, +1);
+Leg backRightLeg(120, 1, 90, -1);
+
+void easeAll()
+{
+  while(true) {
+    delay(15);
+    if (frontRightLeg.ease() && frontLeftLeg.ease() && backLeftLeg.ease() && backRightLeg.ease()) {
+      break; 
+    }
+  }  
+}
+
+
+class Forward
+{
+public:
+  Forward() : step_(0) { }
+  
+  void reset() { step_ = 0; }
+  
+  void performStep(int delay) 
+  {
+    frontRightLeg.setTarget(shoulderAngles_[step_], kneeAngles_[step_], delay);
+    backLeftLeg.setTarget(shoulderAngles_[step_], kneeAngles_[step_], delay);
+    frontLeftLeg.setTarget(-shoulderAngles_[step_], -kneeAngles_[step_], delay);
+    backRightLeg.setTarget(-shoulderAngles_[step_], -kneeAngles_[step_], delay);   
+  
+    easeAll();
+    
+    step_ += 1;
+    if (step_ == sizeof(shoulderAngles_)) {
+      step_ = 0; 
+    }   
+  }
+  
+private:
+  char step_;
+
+  static const int shoulderAngles_[8];
+  static const int kneeAngles_[8];
+};
+
+const int Forward::shoulderAngles_[] = {21, 0, -21, -30, -21, 0, 21, 30};
+const int Forward::kneeAngles_[] = {-14, -20, -14, 0, 14, 20, 14, 0}; 
+
+Forward forward;
 
 void setup() {
   Serial.begin(38400);
@@ -94,33 +130,7 @@ void setup() {
   frontLeftLeg.set(0, 0);
   backRightLeg.set(0, 0);
 }
-//
-//int frShoulderAngles[] = {30, -30, -30, 30};
-//int frKneeAngles[] = {-20, -20, 20, 20};
 
-int shoulderAmpl = 30;
-int kneeAmpl = 20;
-float shoulderPhase = 0.0;
-float kneePhase = PI / 2;
-
-  Easing fr(frontRightLeg);  
-  Easing bl(backLeftLeg);
-  Easing fl(frontLeftLeg);
-  Easing br(backRightLeg);
-  
 void loop() {
-  fr.setTarget(shoulderAmpl * sin(shoulderPhase), kneeAmpl * sin(kneePhase), 100);
-  bl.setTarget(shoulderAmpl * sin(shoulderPhase), kneeAmpl * sin(kneePhase), 100);
-  fl.setTarget(-shoulderAmpl * sin(shoulderPhase), -kneeAmpl * sin(kneePhase), 100);
-  br.setTarget(-shoulderAmpl * sin(shoulderPhase), -kneeAmpl * sin(kneePhase), 100);   
-  while(true) {
-    delay(15);
-    bool allEased = fl.ease() && br.ease() && fr.ease() && bl.ease();
-    if (allEased) {
-      break; 
-    }
-  }
-    
-  shoulderPhase += PI / 6;
-  kneePhase += PI / 6;
+  forward.performStep(100);
 }
