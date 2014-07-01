@@ -1,4 +1,8 @@
 #include <Servo.h>
+#include "SonarSR04.h"
+
+#define SONAR_TRIG 2
+#define SONAR_ECHO 3
 
 // ------------------------- Legs -----------------------------
 
@@ -78,6 +82,8 @@ Leg& frontLeftLeg = legs[1];
 Leg& backLeftLeg = legs[2];
 Leg& backRightLeg = legs[3];
 
+SonarSR04 sonar;
+
 void easeAll()
 {
   while(true) {
@@ -144,6 +150,9 @@ void setup() {
   frontLeftLeg.attach(10, 9);
   backLeftLeg.attach(8, 7);
   backRightLeg.attach(6, 5);
+  
+  sonar.attach(SONAR_TRIG, SONAR_ECHO, 500);
+
 
   for (int i = 0; i < 4; ++i) {
     legs[i].set(0, 0);
@@ -151,6 +160,9 @@ void setup() {
 }
 
 void loop() {
-  forward.performStep(100);
-  //turn.performStep(100);
+  if (sonar.ping()>100) {
+    forward.performStep(100);
+  } else {
+    turn.performStep(100);
+  }  
 }
